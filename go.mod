@@ -1,4 +1,4 @@
-module local/back
+module github.com/imw-challenge/back
 
 go 1.12
 
