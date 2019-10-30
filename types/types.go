@@ -5,5 +5,6 @@ type Message struct {
 	Name  string
 	Email string
 	Text  string
-	Time  int32 //Unix Epoch Time
+	Time  int64 //Unix Epoch Seconds
+	TZ    int   //Seconds East of UTC
 }
