@@ -2,10 +2,10 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
-	"time"
+	"net/http"
 
+	"github.com/imw-challenge/back/api"
 	"github.com/imw-challenge/back/db"
 )
 
@@ -25,18 +25,18 @@ func main() {
 	}
 
 	mdb.LoadFromCSV(dataPath, batchSize)
-	msgs, err := mdb.FetchAntiChrono()
+	_, err = mdb.FetchAntiChrono()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
-	for _, m := range msgs {
-		messageLocation := time.FixedZone("", m.TZ)
-		zuluTime := time.Unix(m.Time, 0)
-		fmt.Printf("message from %s at %s\n", m.Name, zuluTime.In(messageLocation).Format(time.RFC3339))
+	//instantiate api and register routes
+	apiHandle, err := api.InitAPI(mdb)
+	if err != nil {
+		log.Fatal(err)
 	}
+
+	//listen
+	log.Fatal(http.ListenAndServe("0.0.0.0:9000", apiHandle.GetRouter()))
 
 }
-
-//instantiate api and register routes
-//listen

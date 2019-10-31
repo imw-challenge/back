@@ -2,6 +2,7 @@ package db
 
 import (
 	"encoding/csv"
+	"errors"
 	"os"
 	"sort"
 	"time"
@@ -128,7 +129,11 @@ func (m *MessageDB) FetchByID(ID string) (*types.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	return raw.(*types.Message), nil
+	if raw != nil { //message found
+		return raw.(*types.Message), nil
+	} else {
+		return &types.Message{}, errors.New("Message not found")
+	}
 }
 
 func (m *MessageDB) FetchByTime(start int) (ResultIter, error) {
