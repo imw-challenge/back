@@ -25,10 +25,6 @@ func main() {
 	}
 
 	mdb.LoadFromCSV(dataPath, batchSize)
-	_, err = mdb.FetchAntiChrono()
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	//instantiate api and register routes
 	apiHandle, err := api.InitAPI(mdb)

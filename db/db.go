@@ -105,7 +105,7 @@ func (m *MessageDB) InsertMessages(messages []*types.Message) error {
 	return nil
 }
 
-// Insert creates if message does not exist, updates if it does exist
+// InsertMessage creates a message if it does not exist, or updates if it does exist
 func (m *MessageDB) InsertMessage(message *types.Message) error {
 	// Create a write transaction
 	txn := m.db.Txn(true)
@@ -119,6 +119,23 @@ func (m *MessageDB) InsertMessage(message *types.Message) error {
 	return nil
 }
 
+// FetchAll returns a slice with all the messages in the database, in non-deterministic order
+func (m *MessageDB) FetchAll() ([]*types.Message, error) {
+	txn := m.db.Txn(false)
+	it, err := txn.Get("message", "id")
+	if err != nil {
+		return []*types.Message{}, err
+	}
+
+	var messages []*types.Message
+	for obj := it.Next(); obj != nil; obj = it.Next() {
+		m := obj.(*types.Message)
+		messages = append(messages, m)
+	}
+	return messages, nil
+}
+
+// FetchByID fetches a single message by ID
 func (m *MessageDB) FetchByID(ID string) (*types.Message, error) {
 	// Create read-only transaction
 	txn := m.db.Txn(false)
@@ -136,7 +153,9 @@ func (m *MessageDB) FetchByID(ID string) (*types.Message, error) {
 	}
 }
 
-func (m *MessageDB) FetchByTime(start int) (ResultIter, error) {
+// fetchByMinTime returns a result iterator for messages with a timestamp
+// at or after the specified start in unix seconds
+func (m *MessageDB) fetchByMinTime(start int64) (ResultIter, error) {
 	txn := m.db.Txn(false)
 	defer txn.Abort()
 
@@ -148,10 +167,13 @@ func (m *MessageDB) FetchByTime(start int) (ResultIter, error) {
 
 }
 
-func (m *MessageDB) FetchAntiChrono() ([]*types.Message, error) {
+// FetchSortedByTime returns a slice of messages with timestamps between
+// start and end (inclusive), specified in unix seconds - the ordering of this array
+// is chronological if ascending is true, or reverse chronological if false
+func (m *MessageDB) FetchSortedByTime(start int64, end int64, ascending bool) ([]*types.Message, error) {
 	//fetch by time
 	var messages []*types.Message
-	it, err := m.FetchByTime(0)
+	it, err := m.fetchByMinTime(start)
 	if err != nil {
 		return []*types.Message{}, err
 	}
@@ -159,29 +181,16 @@ func (m *MessageDB) FetchAntiChrono() ([]*types.Message, error) {
 	//insert into slice
 	for obj := it.Next(); obj != nil; obj = it.Next() {
 		m := obj.(*types.Message)
-		messages = append(messages, m)
+		if m.Time <= end {
+			messages = append(messages, m)
+		}
 	}
 
 	//sort slice
-	sort.Slice(messages, func(i, j int) bool { return messages[i].Time > messages[j].Time })
+	if ascending {
+		sort.Slice(messages, func(i, j int) bool { return messages[i].Time < messages[j].Time })
+	} else {
+		sort.Slice(messages, func(i, j int) bool { return messages[i].Time > messages[j].Time })
+	}
 	return messages, nil
 }
-
-/*
-
-
-// Fetch by Name
-it, err := txn.Get("message", "name", "Alex Mustermann")
-if err != nil {
-	panic(err)
-}
-
-fmt.Println("Match:")
-for obj := it.Next(); obj != nil; obj = it.Next() {
-	m := obj.(*types.Message)
-	fmt.Printf("%s %s %s %s %s\n", m.ID, m.Name, m.Email, m.Text, time.fromUnix(m.UTime).tostring())
-}
-
-// Fetch messages by Time
-
-*/

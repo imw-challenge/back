@@ -14,6 +14,7 @@ type Message struct {
 	TZ    int    //Seconds East of UTC
 }
 
+// Custom marshaller for Message, converts unix seconds + offset to RFC3339 format
 func (m *Message) MarshalJSON() ([]byte, error) {
 	messageLocation := time.FixedZone("", m.TZ)
 	utc := time.Unix(m.Time, 0)
@@ -33,8 +34,9 @@ func (m *Message) MarshalJSON() ([]byte, error) {
 	})
 }
 
-//Alias Message so that we can inherit fields without inheriting methods
-//   to avoid looping on Unmarshall
+// Custom unmarshaller for Message converts RFC3339 format to unix seconds + offset
+// Aliases Message so that we can inherit fields without inheriting methods
+//   to avoid looping on UnmarshalJSON
 func (m *Message) UnmarshalJSON(data []byte) error {
 	type MessageAlias Message
 	aux := &struct {
@@ -52,3 +54,11 @@ func (m *Message) UnmarshalJSON(data []byte) error {
 	m.TZ = timeOffset
 	return nil
 }
+
+//Int64Slice attaches sort interface methods to []int64
+//Allows for sort check at end of TestFetchAntiChrono
+type Int64Slice []int64
+
+func (p Int64Slice) Len() int           { return len(p) }
+func (p Int64Slice) Less(i, j int) bool { return p[i] < p[j] }
+func (p Int64Slice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }

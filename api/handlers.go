@@ -4,13 +4,21 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"math"
 	"net/http"
 
 	"github.com/imw-challenge/back/types"
 )
 
+// postMessageHandler handles a post message request
+// it checks that there is a well-formed body, containing at least an ID and text
+// and inserts to the DB
 func (a *API) postMessageHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Body == nil {
+			badRequestHandler(w, "postMessage", errors.New("Request had no body"))
+			return
+		}
 		decoder := json.NewDecoder(r.Body)
 		var m types.Message
 		err := decoder.Decode(&m)
@@ -31,8 +39,18 @@ func (a *API) postMessageHandler() http.HandlerFunc {
 	}
 }
 
+// putMessageHandler handles a put message request
+// it checks that the request has a well-formed body containing an ID and text
+// if a message with this ID exists, it updates the text
+// otherwise, it returns 404
 func (a *API) putMessageHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+
+		if r.Body == nil {
+			badRequestHandler(w, "putMessage", errors.New("Request had no body"))
+			return
+		}
+
 		decoder := json.NewDecoder(r.Body)
 		var m types.Message
 		err := decoder.Decode(&m)
@@ -59,8 +77,17 @@ func (a *API) putMessageHandler() http.HandlerFunc {
 	}
 }
 
+// getMessageHandler handles a get message request
+// it checks that there is a well-formed request body containing an ID
+// it returns 404 if this message is not in the db, otherwise returning
+// the message as pretty-printed JSON
 func (a *API) getMessageHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Body == nil {
+			badRequestHandler(w, "getMessage", errors.New("Request had no body"))
+			return
+		}
+
 		decoder := json.NewDecoder(r.Body)
 		var m types.Message
 		err := decoder.Decode(&m)
@@ -87,9 +114,13 @@ func (a *API) getMessageHandler() http.HandlerFunc {
 	}
 }
 
+// getDumpHandler handles a get dump request
+// it fetches all of the messages in reverse chronoligcal order,
+// and returns them as a pretty-printed JSON array
 func (a *API) getDumpHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		messages, err := a.mdb.FetchAntiChrono()
+		//this fetches all messages, starting with the latest
+		messages, err := a.mdb.FetchSortedByTime(0, math.MaxInt64, false)
 		if err != nil {
 			internalErrorHandler(w, "getDump", err)
 			return
@@ -111,10 +142,8 @@ func internalErrorHandler(w http.ResponseWriter, handlerID string, err error) {
 
 func badRequestHandler(w http.ResponseWriter, handlerID string, err error) {
 	w.WriteHeader(http.StatusBadRequest)
-	log.Printf("Bad Request in %s: %s", handlerID, err)
 }
 
 func notFoundHandler(w http.ResponseWriter, resourceID string, handlerID string) {
 	w.WriteHeader(http.StatusNotFound)
-	log.Printf("Resource %s not found in %s", resourceID, handlerID)
 }
